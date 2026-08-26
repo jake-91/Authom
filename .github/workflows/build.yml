@@ -1,35 +1,18 @@
-name: build
+name: macOS bundle
 
-# macOS bundles can only be produced on macOS — Apple's SDK and frameworks
-# cannot be linked from another platform — so the dmg is built on a runner
-# rather than locally.
+# A dmg can only be produced on macOS — Apple ships its SDK and frameworks for
+# that platform alone, so Tauri has no cross-compilation path from Windows.
+#
+# Runs on demand and on release tags only. Building on every push to main would
+# burn several minutes of runner time for a bundle nobody asked for.
 on:
   push:
-    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            # One binary covering both Apple Silicon and Intel.
-            target: universal-apple-darwin
-            bundles: dmg
-            artifact: macos-dmg
-            path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            bundles: nsis
-            artifact: windows-installer
-            # Passing --target puts the triple into the output path.
-            path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
-
-    runs-on: ${{ matrix.os }}
-    name: ${{ matrix.artifact }}
+  dmg:
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +24,10 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          # `universal-apple-darwin` is a Tauri construct, not a rustup target.
+          # Tauri builds these two and lipo's them into one binary, so both
+          # have to be installed here.
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - uses: swatinem/rust-cache@v2
         with:
@@ -54,11 +40,12 @@ jobs:
         working-directory: src-tauri
         run: cargo test --lib
 
-      - name: Build bundle
-        run: npm run tauri build -- --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Build dmg
+        run: npm run tauri build -- --target universal-apple-darwin --bundles dmg
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.path }}
+          name: macos-dmg
+          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          # Fail loudly rather than upload an empty artifact if the path drifts.
           if-no-files-found: error
