@@ -42,9 +42,15 @@ Windows / macOS 크로스 플랫폼 (Tauri v2 + React + Rust).
 
 ## 실행
 
-빌드된 실행 파일은 `src-tauri/target/release/authom.exe` 하나로 완결됩니다(약 4 MB).
-설치 없이 원하는 위치에 두고 실행하면 되고, 볼트는 사용자 AppData에 따로 저장되므로
-exe를 옮겨도 데이터는 유지됩니다.
+설치해서 쓰려면 인스톨러 `Authom_<버전>_x64-setup.exe`를 실행하세요. 아래 **인스톨러**
+항목대로 직접 빌드할 수 있습니다.
+
+설치 없이 쓰고 싶다면 `src-tauri/target/release/authom.exe` 하나로도 완결됩니다(약 4 MB).
+원하는 위치에 두고 실행하면 되고, 볼트는 사용자 AppData에 따로 저장되므로 exe를 옮겨도
+데이터는 유지됩니다.
+
+두 방식 모두 코드 서명이 없어 첫 실행 시 Windows SmartScreen 경고가 뜹니다.
+'추가 정보 → 실행'으로 넘어갈 수 있습니다.
 
 ## 개발
 
@@ -54,11 +60,23 @@ npm run app          # 개발 모드 (Vite + Tauri)
 npm run app:build    # 설치본 빌드 (Windows: NSIS, macOS: dmg)
 ```
 
-> **NSIS 인스톨러 빌드 주의**
-> `npm run app:build`는 exe를 만든 뒤 NSIS 툴체인을 `%LOCALAPPDATA%\tauri`에 내려받습니다.
-> 이 경로가 MSIX/앱 컨테이너로 가상화된 환경에서 실행하면 툴체인 압축 해제 단계가
-> `os error 17`로 실패합니다. 이 경우 exe 자체는 정상 생성되어 있으므로 그대로 쓰거나,
-> 일반 PowerShell/명령 프롬프트에서 다시 빌드하세요.
+### 인스톨러
+
+`npm run app:build`가 `src-tauri/target/release/bundle/nsis/Authom_<버전>_x64-setup.exe`를
+생성합니다(약 1.5 MB, LZMA 압축).
+
+빌드가 `os error 17`로 실패한다면 NSIS 툴체인 준비 단계에서 막힌 것입니다. CLI는 NSIS를
+`%LOCALAPPDATA%\tauri`에 풀고 폴더 이름을 바꾸는데, AppData가 가상화된 환경(MSIX/App-V
+컨테이너, 리디렉션된 프로필)에서는 두 경로가 같은 볼륨인데도 이 rename이 거부됩니다.
+게다가 CLI는 재시도할 때마다 반쯤 만들어진 툴체인을 지우므로 저절로 회복되지 않습니다.
+아래를 한 번 실행하면 툴체인을 직접 배치해 그 단계를 건너뜁니다.
+
+```bash
+bash scripts/prepare-nsis.sh
+```
+
+내려받는 파일은 CLI가 쓰는 것과 동일한 공식 URL이며 스크립트가 SHA1을 검증합니다.
+일반적인 환경에서는 필요 없습니다.
 
 Rust 테스트:
 
